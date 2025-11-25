@@ -8,6 +8,7 @@ use crate::protocol::{
 };
 use evdev::{AbsoluteAxisType, EventType, InputEvent, Key, uinput::VirtualDevice};
 use std::io::ErrorKind;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -18,6 +19,7 @@ pub async fn run_tcp_keyboard_server(
     device: Arc<Mutex<VirtualDevice>>,
     gamepad: Arc<Mutex<VirtualDevice>>,
     input_mode: Arc<RwLock<InputMode>>,
+    active_clients: Arc<AtomicUsize>,
 ) -> std::io::Result<()> {
     let listener = TcpListener::bind(format!("0.0.0.0:{}", port)).await?;
 
@@ -28,8 +30,10 @@ pub async fn run_tcp_keyboard_server(
         let dev_clone = device.clone();
         let gamepad_clone = gamepad.clone();
         let mode_clone = input_mode.clone();
+        let client_counter = active_clients.clone();
 
         tokio::spawn(async move {
+            let _guard = ConnectionGuard::new(client_counter);
             if let Err(e) = handle_tcp_client(socket, dev_clone, gamepad_clone, mode_clone).await {
                 eprintln!("Error en conexión TCP {}: {}", addr, e);
             }
@@ -201,5 +205,22 @@ fn map_button(button_id: u8) -> Option<Key> {
         GAMEPAD_BUTTON_START => Some(Key::BTN_START),
         GAMEPAD_BUTTON_BACK => Some(Key::BTN_SELECT),
         _ => None,
+    }
+}
+
+struct ConnectionGuard {
+    counter: Arc<AtomicUsize>,
+}
+
+impl ConnectionGuard {
+    fn new(counter: Arc<AtomicUsize>) -> Self {
+        counter.fetch_add(1, Ordering::SeqCst);
+        Self { counter }
+    }
+}
+
+impl Drop for ConnectionGuard {
+    fn drop(&mut self) {
+        self.counter.fetch_sub(1, Ordering::SeqCst);
     }
 }
