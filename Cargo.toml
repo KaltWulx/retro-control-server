@@ -1,0 +1,18 @@
+[package]
+name = "retro-control-server"
+version = "0.1.0"
+edition = "2024"
+description = "Retro Control server - remote mouse/keyboard/gamepad via uinput"
+
+[dependencies]
+# uinput para crear dispositivos virtuales
+evdev = "0.12"
+# Async runtime para TCP/UDP
+tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "macros", "sync", "time", "signal"] }
+
+[profile.release]
+opt-level = 3       # Optimizar velocidad
+lto = true          # Link-time optimization
+strip = true        # Strip symbols
+debug = true
+panic = "abort"    # Reducir tamaño

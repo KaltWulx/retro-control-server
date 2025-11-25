@@ -1,0 +1,28 @@
+/target
+Cargo.lock
+**/*.rs.bk
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+debug/
+release/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
