@@ -1,5 +1,5 @@
-mod discovery;
 mod devices;
+mod discovery;
 mod gamepad_device;
 mod input_mode;
 mod keyboard_server;
@@ -7,13 +7,13 @@ mod mouse_server;
 mod protocol;
 
 use devices::{create_virtual_keyboard, create_virtual_mouse};
+use discovery::run_discovery_broadcast;
 use gamepad_device::create_virtual_gamepad;
 use input_mode::InputMode;
 use keyboard_server::run_tcp_keyboard_server;
 use mouse_server::run_udp_mouse_server;
-use discovery::run_discovery_broadcast;
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicUsize;
+use std::sync::{Arc, Mutex};
 use tokio::sync::RwLock;
 
 const UDP_PORT: u16 = 5555;

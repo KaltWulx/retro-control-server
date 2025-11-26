@@ -22,6 +22,8 @@ pub const GAMEPAD_AXIS_RIGHT_X: u8 = 0x03;
 pub const GAMEPAD_AXIS_RIGHT_Y: u8 = 0x04;
 pub const GAMEPAD_AXIS_TRIGGER_L: u8 = 0x05;
 pub const GAMEPAD_AXIS_TRIGGER_R: u8 = 0x06;
+pub const GAMEPAD_AXIS_HAT_X: u8 = 0x07;
+pub const GAMEPAD_AXIS_HAT_Y: u8 = 0x08;
 
 // Gamepad button identifiers
 pub const GAMEPAD_BUTTON_A: u8 = 0x01;
@@ -32,3 +34,6 @@ pub const GAMEPAD_BUTTON_LB: u8 = 0x05;
 pub const GAMEPAD_BUTTON_RB: u8 = 0x06;
 pub const GAMEPAD_BUTTON_START: u8 = 0x07;
 pub const GAMEPAD_BUTTON_BACK: u8 = 0x08;
+pub const GAMEPAD_BUTTON_THUMB_L: u8 = 0x09;
+pub const GAMEPAD_BUTTON_THUMB_R: u8 = 0x0A;
+pub const GAMEPAD_BUTTON_HOTKEY: u8 = 0x0B;

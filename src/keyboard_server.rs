@@ -1,10 +1,11 @@
 use crate::input_mode::InputMode;
 use crate::protocol::{
-    GAMEPAD_AXIS_LEFT_X, GAMEPAD_AXIS_LEFT_Y, GAMEPAD_AXIS_RIGHT_X, GAMEPAD_AXIS_RIGHT_Y,
-    GAMEPAD_AXIS_TRIGGER_L, GAMEPAD_AXIS_TRIGGER_R, GAMEPAD_BUTTON_A, GAMEPAD_BUTTON_B,
-    GAMEPAD_BUTTON_BACK, GAMEPAD_BUTTON_LB, GAMEPAD_BUTTON_RB, GAMEPAD_BUTTON_START,
-    GAMEPAD_BUTTON_X, GAMEPAD_BUTTON_Y, HEADER_GAMEPAD_AXIS, HEADER_GAMEPAD_BUTTON,
-    HEADER_KEYBOARD, HEADER_MODE_ACK, HEADER_MODE_SWITCH,
+    GAMEPAD_AXIS_HAT_X, GAMEPAD_AXIS_HAT_Y, GAMEPAD_AXIS_LEFT_X, GAMEPAD_AXIS_LEFT_Y,
+    GAMEPAD_AXIS_RIGHT_X, GAMEPAD_AXIS_RIGHT_Y, GAMEPAD_AXIS_TRIGGER_L, GAMEPAD_AXIS_TRIGGER_R,
+    GAMEPAD_BUTTON_A, GAMEPAD_BUTTON_B, GAMEPAD_BUTTON_BACK, GAMEPAD_BUTTON_HOTKEY,
+    GAMEPAD_BUTTON_LB, GAMEPAD_BUTTON_RB, GAMEPAD_BUTTON_START, GAMEPAD_BUTTON_THUMB_L,
+    GAMEPAD_BUTTON_THUMB_R, GAMEPAD_BUTTON_X, GAMEPAD_BUTTON_Y, HEADER_GAMEPAD_AXIS,
+    HEADER_GAMEPAD_BUTTON, HEADER_KEYBOARD, HEADER_MODE_ACK, HEADER_MODE_SWITCH,
 };
 use evdev::{AbsoluteAxisType, EventType, InputEvent, Key, uinput::VirtualDevice};
 use std::io::ErrorKind;
@@ -126,6 +127,7 @@ async fn handle_tcp_client(
                 if *input_mode.read().await == InputMode::Gamepad {
                     let axis_id = payload[0];
                     let value = i16::from_le_bytes([payload[1], payload[2]]);
+                    println!("Gamepad axis received: id={} value={}", axis_id, value);
                     emit_gamepad_axis(axis_id, value, &gamepad);
                 }
             }
@@ -141,6 +143,7 @@ async fn handle_tcp_client(
                 if *input_mode.read().await == InputMode::Gamepad {
                     let button_id = payload[0];
                     let state = payload[1];
+                    println!("Gamepad button received: id={} state={}", button_id, state);
                     emit_gamepad_button(button_id, state, &gamepad);
                 }
             }
@@ -190,6 +193,8 @@ fn map_axis(axis_id: u8) -> Option<AbsoluteAxisType> {
         GAMEPAD_AXIS_RIGHT_Y => Some(AbsoluteAxisType::ABS_RY),
         GAMEPAD_AXIS_TRIGGER_L => Some(AbsoluteAxisType::ABS_Z),
         GAMEPAD_AXIS_TRIGGER_R => Some(AbsoluteAxisType::ABS_RZ),
+        GAMEPAD_AXIS_HAT_X => Some(AbsoluteAxisType::ABS_HAT0X),
+        GAMEPAD_AXIS_HAT_Y => Some(AbsoluteAxisType::ABS_HAT0Y),
         _ => None,
     }
 }
@@ -204,6 +209,9 @@ fn map_button(button_id: u8) -> Option<Key> {
         GAMEPAD_BUTTON_RB => Some(Key::BTN_TR),
         GAMEPAD_BUTTON_START => Some(Key::BTN_START),
         GAMEPAD_BUTTON_BACK => Some(Key::BTN_SELECT),
+        GAMEPAD_BUTTON_THUMB_L => Some(Key::BTN_THUMBL),
+        GAMEPAD_BUTTON_THUMB_R => Some(Key::BTN_THUMBR),
+        GAMEPAD_BUTTON_HOTKEY => Some(Key::BTN_MODE),
         _ => None,
     }
 }
