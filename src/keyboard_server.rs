@@ -227,7 +227,8 @@ async fn handle_tcp_client(
 }
 
 fn process_keyboard_event(scancode: u8, state: u8, device: &Arc<Mutex<VirtualDevice>>) {
-    let key = Key::new(scancode as u16);
+    let key_code = map_keyboard_key(scancode);
+    let key = Key::new(key_code);
     let val = if state > 0 { 1 } else { 0 };
     let event = InputEvent::new(evdev::EventType::KEY, key.0, val);
 
@@ -283,6 +284,20 @@ fn map_button(button_id: u8) -> Option<Key> {
         GAMEPAD_BUTTON_THUMB_R => Some(Key::BTN_THUMBR),
         GAMEPAD_BUTTON_HOTKEY => Some(Key::BTN_MODE),
         _ => None,
+    }
+}
+
+fn map_keyboard_key(scancode: u8) -> u16 {
+    match scancode {
+        // Fix for Android clients sending Android Keycodes for some keys
+        // Android KEYCODE_MINUS (69) -> Linux KEY_MINUS (12)
+        69 => 12,
+        // Android KEYCODE_EQUALS (70) -> Linux KEY_EQUAL (13)
+        70 => 13,
+        // Android KEYCODE_PLUS (81) -> Linux KEY_KPPLUS (78)
+        81 => 78,
+        // Pass through others (assuming they are already Linux evdev codes)
+        c => c as u16,
     }
 }
 
