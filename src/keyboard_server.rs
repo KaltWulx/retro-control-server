@@ -253,10 +253,39 @@ fn process_keyboard_event(scancode: u8, state: u8, device: &Arc<Mutex<VirtualDev
 }
 
 fn emit_gamepad_axis(axis_id: u8, value: i16, device: &Arc<Mutex<VirtualDevice>>) {
-    if let Some(axis) = map_axis(axis_id) {
-        let event = InputEvent::new(EventType::ABSOLUTE, axis.0, value as i32);
-        if let Ok(mut dev) = device.lock() {
-            let _ = dev.emit(&[event]);
+    match axis_id {
+        GAMEPAD_AXIS_TRIGGER_L => {
+            let key = Key::BTN_THUMBL;
+            let val = if value == 0 { 0 } else { 1 };
+            let event = InputEvent::new(EventType::KEY, key.0, val);
+            if let Ok(mut dev) = device.lock() {
+                let _ = dev.emit(&[event]);
+            }
+        }
+        GAMEPAD_AXIS_TRIGGER_R => {
+            let key = Key::BTN_THUMBR;
+            let val = if value == 0 { 0 } else { 1 };
+            let event = InputEvent::new(EventType::KEY, key.0, val);
+            if let Ok(mut dev) = device.lock() {
+                let _ = dev.emit(&[event]);
+            }
+        }
+        GAMEPAD_AXIS_HAT_X | GAMEPAD_AXIS_HAT_Y => {
+            if let Some(axis) = map_axis(axis_id) {
+                let scaled_value = if value < 0 { -1 } else if value > 0 { 1 } else { 0 };
+                let event = InputEvent::new(EventType::ABSOLUTE, axis.0, scaled_value);
+                if let Ok(mut dev) = device.lock() {
+                    let _ = dev.emit(&[event]);
+                }
+            }
+        }
+        _ => {
+            if let Some(axis) = map_axis(axis_id) {
+                let event = InputEvent::new(EventType::ABSOLUTE, axis.0, value as i32);
+                if let Ok(mut dev) = device.lock() {
+                    let _ = dev.emit(&[event]);
+                }
+            }
         }
     }
 }

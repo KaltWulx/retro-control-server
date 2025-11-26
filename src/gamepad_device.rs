@@ -13,6 +13,9 @@ pub fn create_virtual_gamepad() -> Result<VirtualDevice, Box<dyn std::error::Err
     keys.insert(Key::BTN_TR);
     keys.insert(Key::BTN_START);
     keys.insert(Key::BTN_SELECT);
+    keys.insert(Key::BTN_THUMBL);
+    keys.insert(Key::BTN_THUMBR);
+    keys.insert(Key::BTN_MODE);
 
     let mut builder = VirtualDeviceBuilder::new()?
         .name("Retro Control Gamepad")
