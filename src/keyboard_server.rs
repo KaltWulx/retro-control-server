@@ -1,5 +1,5 @@
 use crate::input_mode::InputMode;
-use crate::logger::{log, log_data, Verbosity};
+use crate::logger::{log_block, log_detail, Verbosity};
 use crate::protocol::{
     GAMEPAD_AXIS_HAT_X, GAMEPAD_AXIS_HAT_Y, GAMEPAD_AXIS_LEFT_X, GAMEPAD_AXIS_LEFT_Y,
     GAMEPAD_AXIS_RIGHT_X, GAMEPAD_AXIS_RIGHT_Y, GAMEPAD_AXIS_TRIGGER_L, GAMEPAD_AXIS_TRIGGER_R,
@@ -30,24 +30,18 @@ pub async fn run_tcp_keyboard_server(
 
     loop {
         let (socket, addr) = listener.accept().await?;
-        println!("Nueva conexión TCP desde: {}", addr);
         let peer_ip = addr.ip();
+        log_detail(Verbosity::Medium, "Conexión TCP aceptada", &format!("ip={}", peer_ip));
         let connection_id = connection_id_counter.fetch_add(1, Ordering::SeqCst);
 
         let old_notifier = {
             let session = active_session.lock().unwrap();
             if let Some((existing_ip, _, old_notify)) = session.as_ref() {
                 if *existing_ip == peer_ip {
-                    println!(
-                        "TCP connection from {} already exists; closing previous connection",
-                        peer_ip
-                    );
+                    log_detail(Verbosity::Low, "Conexión TCP existente", &format!("cerrando ip={}", peer_ip));
                     Some(old_notify.clone())
                 } else {
-                    println!(
-                        "TCP connection from {} rejected: already bound to {}",
-                        peer_ip, existing_ip
-                    );
+                    log_detail(Verbosity::Low, "Conexión TCP rechazada", &format!("ip={} ya ligada a {}", peer_ip, existing_ip));
                     continue;
                 }
             } else {
@@ -65,7 +59,7 @@ pub async fn run_tcp_keyboard_server(
             *session = Some((peer_ip, connection_id, new_notify.clone()));
         }
 
-        println!("TCP connection from {} registered", peer_ip);
+        log_detail(Verbosity::Low, "Conexión TCP registrada", &format!("ip={}", peer_ip));
 
         let dev_clone = device.clone();
         let gamepad_clone = gamepad.clone();
@@ -81,11 +75,11 @@ pub async fn run_tcp_keyboard_server(
             tokio::select! {
                 result = handle_tcp_client(socket, dev_clone, gamepad_clone, mode_clone) => {
                     if let Err(e) = result {
-                        eprintln!("Error en conexión TCP {}: {}", addr, e);
+                        log_detail(Verbosity::Low, "Error en conexión TCP", &format!("{}: {}", addr, e));
                     }
                 }
                 _ = cancel_signal.notified() => {
-                    println!("TCP connection from {} terminated by new connection", peer_ip);
+                    log_detail(Verbosity::Low, "Conexión TCP terminada", &format!("ip={} por nueva conexión", peer_ip));
                 }
             }
 
@@ -104,10 +98,7 @@ pub async fn run_tcp_keyboard_server(
             };
 
             if should_clear_session {
-                println!(
-                    "TCP connection from {} removed - client count reset",
-                    peer_ip
-                );
+                log_detail(Verbosity::Low, "Conexión TCP removida", &format!("ip={} contador reseteado", peer_ip));
             }
         });
     }
@@ -141,7 +132,6 @@ async fn handle_tcp_client(
 
         match header[0] {
             HEADER_MODE_SWITCH => {
-                log_data(Verbosity::High, "TCP Mode Switch Header", &header);
                 let mut mode_byte = [0u8; 1];
                 if let Err(e) = socket.read_exact(&mut mode_byte).await {
                     if is_connection_closed(&e) {
@@ -149,13 +139,12 @@ async fn handle_tcp_client(
                     }
                     return Err(e);
                 }
-                log_data(Verbosity::High, "TCP Mode Switch Payload", &mode_byte);
-                if let Err(e) = socket.read_exact(&mut mode_byte).await {
-                    if is_connection_closed(&e) {
-                        break;
-                    }
-                    return Err(e);
-                }
+                log_block("TCP Packet", vec![
+                    format!("type=Mode Switch"),
+                    format!("header={:02X}", header[0]),
+                    format!("mode={}", mode_byte[0]),
+                    format!("raw={:02X}", mode_byte[0])
+                ]);
 
                 if let Some(new_mode) = InputMode::from_byte(mode_byte[0]) {
                     {
@@ -163,14 +152,10 @@ async fn handle_tcp_client(
                         if *guard != new_mode {
                             match new_mode {
                                 InputMode::Gamepad => {
-                                    println!(
-                                        "Modo cambiado a gamepad; ignorando paquetes de teclado hasta cambiar de modo"
-                                    );
+                                    log_detail(Verbosity::Low, "Modo cambiado", "a gamepad");
                                 }
                                 InputMode::MouseKeyboard => {
-                                    println!(
-                                        "Modo cambiado a mouse+teclado; procesando paquetes de teclado"
-                                    );
+                                    log_detail(Verbosity::Low, "Modo cambiado", "a mouse+teclado");
                                 }
                             }
                         }
@@ -182,7 +167,6 @@ async fn handle_tcp_client(
                 }
             }
             HEADER_KEYBOARD => {
-                log_data(Verbosity::High, "TCP Keyboard Header", &header);
                 let mut payload = [0u8; 2];
                 if let Err(e) = socket.read_exact(&mut payload).await {
                     if is_connection_closed(&e) {
@@ -190,20 +174,19 @@ async fn handle_tcp_client(
                     }
                     return Err(e);
                 }
-                log_data(Verbosity::High, "TCP Keyboard Payload", &payload);
-                if let Err(e) = socket.read_exact(&mut payload).await {
-                    if is_connection_closed(&e) {
-                        break;
-                    }
-                    return Err(e);
-                }
+                log_block("TCP Packet", vec![
+                    format!("type=Keyboard"),
+                    format!("header={:02X}", header[0]),
+                    format!("scancode={}", payload[0]),
+                    format!("state={}", payload[1]),
+                    format!("raw={:02X} {:02X}", payload[0], payload[1])
+                ]);
 
                 if *input_mode.read().await == InputMode::MouseKeyboard {
                     process_keyboard_event(payload[0], payload[1], &device);
                 }
             }
             HEADER_GAMEPAD_AXIS => {
-                log_data(Verbosity::High, "TCP Gamepad Axis Header", &header);
                 let mut payload = [0u8; 3];
                 if let Err(e) = socket.read_exact(&mut payload).await {
                     if is_connection_closed(&e) {
@@ -211,23 +194,21 @@ async fn handle_tcp_client(
                     }
                     return Err(e);
                 }
-                log_data(Verbosity::High, "TCP Gamepad Axis Payload", &payload);
-                if let Err(e) = socket.read_exact(&mut payload).await {
-                    if is_connection_closed(&e) {
-                        break;
-                    }
-                    return Err(e);
-                }
+                let value = i16::from_le_bytes([payload[1], payload[2]]);
+                log_block("Gamepad Axis", vec![
+                    format!("header={:02X}", header[0]),
+                    format!("axis_id={} ({})", payload[0], axis_name(payload[0])),
+                    format!("raw={:02X} {:02X} {:02X}", payload[0], payload[1], payload[2]),
+                    format!("value={}", value)
+                ]);
 
                 if *input_mode.read().await == InputMode::Gamepad {
                     let axis_id = payload[0];
                     let value = i16::from_le_bytes([payload[1], payload[2]]);
-                    println!("Gamepad axis received: id={} value={}", axis_id, value);
                     emit_gamepad_axis(axis_id, value, &gamepad);
                 }
             }
             HEADER_GAMEPAD_BUTTON => {
-                log_data(Verbosity::High, "TCP Gamepad Button Header", &header);
                 let mut payload = [0u8; 2];
                 if let Err(e) = socket.read_exact(&mut payload).await {
                     if is_connection_closed(&e) {
@@ -235,23 +216,24 @@ async fn handle_tcp_client(
                     }
                     return Err(e);
                 }
-                log_data(Verbosity::High, "TCP Gamepad Button Payload", &payload);
-                if let Err(e) = socket.read_exact(&mut payload).await {
-                    if is_connection_closed(&e) {
-                        break;
-                    }
-                    return Err(e);
-                }
+                log_block("Gamepad Button", vec![
+                    format!("header={:02X}", header[0]),
+                    format!("button_id={} ({})", payload[0], button_name(payload[0])),
+                    format!("state={} ({})", payload[1], if payload[1] > 0 { "pressed" } else { "released" }),
+                    format!("raw={:02X} {:02X}", payload[0], payload[1])
+                ]);
 
                 if *input_mode.read().await == InputMode::Gamepad {
                     let button_id = payload[0];
                     let state = payload[1];
-                    println!("Gamepad button received: id={} state={}", button_id, state);
                     emit_gamepad_button(button_id, state, &gamepad);
                 }
             }
             other => {
-                log(Verbosity::High, &format!("Paquete TCP desconocido {:02X}; descartado", other));
+                log_block("TCP Packet", vec![
+                    format!("type=Unknown"),
+                    format!("header={:02X}", other)
+                ]);
             }
         }
     }
@@ -263,7 +245,6 @@ fn process_keyboard_event(scancode: u8, state: u8, device: &Arc<Mutex<VirtualDev
     let key_code = map_keyboard_key(scancode);
     let key = Key::new(key_code);
     let val = if state > 0 { 1 } else { 0 };
-    log(Verbosity::High, &format!("Teclado: scancode={} -> key_code={} ({}), state={}", scancode, key_code, key.0, state));
     let event = InputEvent::new(evdev::EventType::KEY, key.0, val);
 
     if let Ok(mut dev) = device.lock() {
@@ -350,5 +331,37 @@ impl ConnectionGuard {
 impl Drop for ConnectionGuard {
     fn drop(&mut self) {
         self.counter.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+fn button_name(id: u8) -> &'static str {
+    match id {
+        GAMEPAD_BUTTON_A => "A",
+        GAMEPAD_BUTTON_B => "B",
+        GAMEPAD_BUTTON_X => "X",
+        GAMEPAD_BUTTON_Y => "Y",
+        GAMEPAD_BUTTON_LB => "LB",
+        GAMEPAD_BUTTON_RB => "RB",
+        GAMEPAD_BUTTON_START => "Start",
+        GAMEPAD_BUTTON_BACK => "Back",
+        GAMEPAD_BUTTON_THUMB_L => "Thumb L",
+        GAMEPAD_BUTTON_THUMB_R => "Thumb R",
+        GAMEPAD_BUTTON_HOTKEY => "Hotkey",
+        GAMEPAD_BUTTON_GUIDE => "Guide",
+        _ => "Unknown",
+    }
+}
+
+fn axis_name(id: u8) -> &'static str {
+    match id {
+        GAMEPAD_AXIS_LEFT_X => "Left X",
+        GAMEPAD_AXIS_LEFT_Y => "Left Y",
+        GAMEPAD_AXIS_RIGHT_X => "Right X",
+        GAMEPAD_AXIS_RIGHT_Y => "Right Y",
+        GAMEPAD_AXIS_TRIGGER_L => "Trigger L",
+        GAMEPAD_AXIS_TRIGGER_R => "Trigger R",
+        GAMEPAD_AXIS_HAT_X => "Hat X",
+        GAMEPAD_AXIS_HAT_Y => "Hat Y",
+        _ => "Unknown",
     }
 }
