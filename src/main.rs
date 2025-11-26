@@ -31,7 +31,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("✓ Dispositivos virtuales creados");
 
     let connected_clients = Arc::new(AtomicUsize::new(0));
-
     let mouse_clone = mouse.clone();
     tokio::spawn(async move {
         if let Err(e) = run_udp_mouse_server(UDP_PORT, mouse_clone).await {
@@ -42,11 +41,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let keyboard_clone = keyboard.clone();
     let mode_clone = input_mode.clone();
     let tcp_clients_clone = connected_clients.clone();
+    let gamepad_clone = gamepad.clone();
     tokio::spawn(async move {
         if let Err(e) = run_tcp_keyboard_server(
             TCP_PORT,
             keyboard_clone,
-            gamepad.clone(),
+            gamepad_clone,
             mode_clone,
             tcp_clients_clone,
         )

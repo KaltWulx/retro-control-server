@@ -9,11 +9,12 @@ use crate::protocol::{
 };
 use evdev::{AbsoluteAxisType, EventType, InputEvent, Key, uinput::VirtualDevice};
 use std::io::ErrorKind;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::net::IpAddr;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::RwLock;
+use tokio::sync::{Notify, RwLock};
 
 pub async fn run_tcp_keyboard_server(
     port: u16,
@@ -23,20 +24,89 @@ pub async fn run_tcp_keyboard_server(
     active_clients: Arc<AtomicUsize>,
 ) -> std::io::Result<()> {
     let listener = TcpListener::bind(format!("0.0.0.0:{}", port)).await?;
+    let active_session: Arc<Mutex<Option<(IpAddr, u64, Arc<Notify>)>>> = Arc::new(Mutex::new(None));
+    let connection_id_counter = Arc::new(AtomicU64::new(0));
 
     loop {
         let (socket, addr) = listener.accept().await?;
         println!("Nueva conexión TCP desde: {}", addr);
+        let peer_ip = addr.ip();
+        let connection_id = connection_id_counter.fetch_add(1, Ordering::SeqCst);
+
+        let old_notifier = {
+            let session = active_session.lock().unwrap();
+            if let Some((existing_ip, _, old_notify)) = session.as_ref() {
+                if *existing_ip == peer_ip {
+                    println!(
+                        "TCP connection from {} already exists; closing previous connection",
+                        peer_ip
+                    );
+                    Some(old_notify.clone())
+                } else {
+                    println!(
+                        "TCP connection from {} rejected: already bound to {}",
+                        peer_ip, existing_ip
+                    );
+                    continue;
+                }
+            } else {
+                None
+            }
+        };
+
+        if let Some(notifier) = old_notifier {
+            notifier.notify_one();
+        }
+
+        let new_notify = Arc::new(Notify::new());
+        {
+            let mut session = active_session.lock().unwrap();
+            *session = Some((peer_ip, connection_id, new_notify.clone()));
+        }
+
+        println!("TCP connection from {} registered", peer_ip);
 
         let dev_clone = device.clone();
         let gamepad_clone = gamepad.clone();
         let mode_clone = input_mode.clone();
+        let session_clone = active_session.clone();
+        let cancel_signal = new_notify.clone();
+        let connection_id_clone = connection_id;
         let client_counter = active_clients.clone();
 
         tokio::spawn(async move {
             let _guard = ConnectionGuard::new(client_counter);
-            if let Err(e) = handle_tcp_client(socket, dev_clone, gamepad_clone, mode_clone).await {
-                eprintln!("Error en conexión TCP {}: {}", addr, e);
+
+            tokio::select! {
+                result = handle_tcp_client(socket, dev_clone, gamepad_clone, mode_clone) => {
+                    if let Err(e) = result {
+                        eprintln!("Error en conexión TCP {}: {}", addr, e);
+                    }
+                }
+                _ = cancel_signal.notified() => {
+                    println!("TCP connection from {} terminated by new connection", peer_ip);
+                }
+            }
+
+            let should_clear_session = {
+                let mut session = session_clone.lock().unwrap();
+                if let Some((active_ip, active_id, _)) = session.as_ref() {
+                    if *active_ip == peer_ip && *active_id == connection_id_clone {
+                        *session = None;
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            };
+
+            if should_clear_session {
+                println!(
+                    "TCP connection from {} removed - client count reset",
+                    peer_ip
+                );
             }
         });
     }
