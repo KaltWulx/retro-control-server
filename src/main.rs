@@ -3,6 +3,7 @@ mod discovery;
 mod gamepad_device;
 mod input_mode;
 mod keyboard_server;
+mod logger;
 mod mouse_server;
 mod protocol;
 
@@ -11,6 +12,7 @@ use discovery::run_discovery_broadcast;
 use gamepad_device::create_virtual_gamepad;
 use input_mode::InputMode;
 use keyboard_server::run_tcp_keyboard_server;
+use logger::{log, set_verbosity, Verbosity};
 use mouse_server::run_udp_mouse_server;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
@@ -21,7 +23,15 @@ const TCP_PORT: u16 = 5556;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🚀 Iniciando Retro Control Server...");
+    let args: Vec<String> = std::env::args().collect();
+    let verbosity = if args.len() > 1 && args[1] == "--verbosity" && args.len() > 2 {
+        args[2].parse::<u8>().unwrap_or(0)
+    } else {
+        0
+    };
+    set_verbosity(Verbosity::from_u8(verbosity));
+
+    log(Verbosity::Low, "🚀 Iniciando Retro Control Server...");
 
     let mouse = Arc::new(Mutex::new(create_virtual_mouse()?));
     let keyboard = Arc::new(Mutex::new(create_virtual_keyboard()?));
@@ -34,7 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mouse_clone = mouse.clone();
     tokio::spawn(async move {
         if let Err(e) = run_udp_mouse_server(UDP_PORT, mouse_clone).await {
-            eprintln!("Error en servidor UDP Mouse: {}", e);
+            log(Verbosity::Low, &format!("Error en servidor UDP Mouse: {}", e));
         }
     });
 
@@ -42,6 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mode_clone = input_mode.clone();
     let tcp_clients_clone = connected_clients.clone();
     let gamepad_clone = gamepad.clone();
+    
     tokio::spawn(async move {
         if let Err(e) = run_tcp_keyboard_server(
             TCP_PORT,
@@ -52,24 +63,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .await
         {
-            eprintln!("Error en servidor TCP Teclado: {}", e);
+            log(Verbosity::Low, &format!("Error en servidor TCP Teclado: {}", e));
         }
     });
 
     let discovery_clients = connected_clients.clone();
     tokio::spawn(async move {
         if let Err(e) = run_discovery_broadcast(TCP_PORT, UDP_PORT, discovery_clients).await {
-            eprintln!("Error en broadcast de descubrimiento: {}", e);
+            log(Verbosity::Low, &format!("Error en broadcast de descubrimiento: {}", e));
         }
     });
 
-    println!("✓ Servidores de red iniciados");
-    println!("   - Mouse UDP: 0.0.0.0:{}", UDP_PORT);
-    println!("   - Teclado TCP: 0.0.0.0:{}", TCP_PORT);
-    println!("Esperando conexiones...");
+    log(Verbosity::Low, "✓ Servidores de red iniciados");
+    log(Verbosity::Low, &format!("   - Mouse UDP: 0.0.0.0:{}", UDP_PORT));
+    log(Verbosity::Low, &format!("   - Teclado TCP: 0.0.0.0:{}", TCP_PORT));
+    log(Verbosity::Low, "Esperando conexiones...");
 
     tokio::signal::ctrl_c().await?;
-    println!("\nApagando Retro Control Server...");
+    log(Verbosity::Low, "\nApagando Retro Control Server...");
 
     Ok(())
 }

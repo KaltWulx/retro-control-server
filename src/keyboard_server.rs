@@ -1,8 +1,9 @@
 use crate::input_mode::InputMode;
+use crate::logger::{log, log_data, Verbosity};
 use crate::protocol::{
     GAMEPAD_AXIS_HAT_X, GAMEPAD_AXIS_HAT_Y, GAMEPAD_AXIS_LEFT_X, GAMEPAD_AXIS_LEFT_Y,
     GAMEPAD_AXIS_RIGHT_X, GAMEPAD_AXIS_RIGHT_Y, GAMEPAD_AXIS_TRIGGER_L, GAMEPAD_AXIS_TRIGGER_R,
-    GAMEPAD_BUTTON_A, GAMEPAD_BUTTON_B, GAMEPAD_BUTTON_BACK, GAMEPAD_BUTTON_HOTKEY,
+    GAMEPAD_BUTTON_A, GAMEPAD_BUTTON_B, GAMEPAD_BUTTON_BACK, GAMEPAD_BUTTON_GUIDE, GAMEPAD_BUTTON_HOTKEY,
     GAMEPAD_BUTTON_LB, GAMEPAD_BUTTON_RB, GAMEPAD_BUTTON_START, GAMEPAD_BUTTON_THUMB_L,
     GAMEPAD_BUTTON_THUMB_R, GAMEPAD_BUTTON_X, GAMEPAD_BUTTON_Y, HEADER_GAMEPAD_AXIS,
     HEADER_GAMEPAD_BUTTON, HEADER_KEYBOARD, HEADER_MODE_ACK, HEADER_MODE_SWITCH,
@@ -140,7 +141,15 @@ async fn handle_tcp_client(
 
         match header[0] {
             HEADER_MODE_SWITCH => {
+                log_data(Verbosity::High, "TCP Mode Switch Header", &header);
                 let mut mode_byte = [0u8; 1];
+                if let Err(e) = socket.read_exact(&mut mode_byte).await {
+                    if is_connection_closed(&e) {
+                        break;
+                    }
+                    return Err(e);
+                }
+                log_data(Verbosity::High, "TCP Mode Switch Payload", &mode_byte);
                 if let Err(e) = socket.read_exact(&mut mode_byte).await {
                     if is_connection_closed(&e) {
                         break;
@@ -173,7 +182,15 @@ async fn handle_tcp_client(
                 }
             }
             HEADER_KEYBOARD => {
+                log_data(Verbosity::High, "TCP Keyboard Header", &header);
                 let mut payload = [0u8; 2];
+                if let Err(e) = socket.read_exact(&mut payload).await {
+                    if is_connection_closed(&e) {
+                        break;
+                    }
+                    return Err(e);
+                }
+                log_data(Verbosity::High, "TCP Keyboard Payload", &payload);
                 if let Err(e) = socket.read_exact(&mut payload).await {
                     if is_connection_closed(&e) {
                         break;
@@ -186,7 +203,15 @@ async fn handle_tcp_client(
                 }
             }
             HEADER_GAMEPAD_AXIS => {
+                log_data(Verbosity::High, "TCP Gamepad Axis Header", &header);
                 let mut payload = [0u8; 3];
+                if let Err(e) = socket.read_exact(&mut payload).await {
+                    if is_connection_closed(&e) {
+                        break;
+                    }
+                    return Err(e);
+                }
+                log_data(Verbosity::High, "TCP Gamepad Axis Payload", &payload);
                 if let Err(e) = socket.read_exact(&mut payload).await {
                     if is_connection_closed(&e) {
                         break;
@@ -202,7 +227,15 @@ async fn handle_tcp_client(
                 }
             }
             HEADER_GAMEPAD_BUTTON => {
+                log_data(Verbosity::High, "TCP Gamepad Button Header", &header);
                 let mut payload = [0u8; 2];
+                if let Err(e) = socket.read_exact(&mut payload).await {
+                    if is_connection_closed(&e) {
+                        break;
+                    }
+                    return Err(e);
+                }
+                log_data(Verbosity::High, "TCP Gamepad Button Payload", &payload);
                 if let Err(e) = socket.read_exact(&mut payload).await {
                     if is_connection_closed(&e) {
                         break;
@@ -218,7 +251,7 @@ async fn handle_tcp_client(
                 }
             }
             other => {
-                println!("Paquete TCP desconocido {:02X}; descartado", other);
+                log(Verbosity::High, &format!("Paquete TCP desconocido {:02X}; descartado", other));
             }
         }
     }
@@ -230,6 +263,7 @@ fn process_keyboard_event(scancode: u8, state: u8, device: &Arc<Mutex<VirtualDev
     let key_code = map_keyboard_key(scancode);
     let key = Key::new(key_code);
     let val = if state > 0 { 1 } else { 0 };
+    log(Verbosity::High, &format!("Teclado: scancode={} -> key_code={} ({}), state={}", scancode, key_code, key.0, state));
     let event = InputEvent::new(evdev::EventType::KEY, key.0, val);
 
     if let Ok(mut dev) = device.lock() {
@@ -283,6 +317,7 @@ fn map_button(button_id: u8) -> Option<Key> {
         GAMEPAD_BUTTON_THUMB_L => Some(Key::BTN_THUMBL),
         GAMEPAD_BUTTON_THUMB_R => Some(Key::BTN_THUMBR),
         GAMEPAD_BUTTON_HOTKEY => Some(Key::BTN_MODE),
+        GAMEPAD_BUTTON_GUIDE => Some(Key::BTN_MODE),
         _ => None,
     }
 }

@@ -37,3 +37,4 @@ pub const GAMEPAD_BUTTON_BACK: u8 = 0x08;
 pub const GAMEPAD_BUTTON_THUMB_L: u8 = 0x09;
 pub const GAMEPAD_BUTTON_THUMB_R: u8 = 0x0A;
 pub const GAMEPAD_BUTTON_HOTKEY: u8 = 0x0B;
+pub const GAMEPAD_BUTTON_GUIDE: u8 = 0x0F;

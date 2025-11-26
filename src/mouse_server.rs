@@ -1,3 +1,4 @@
+use crate::logger::{log, log_data, Verbosity};
 use crate::protocol::HEADER_MOUSE;
 use evdev::{EventType, InputEvent, Key, RelativeAxisType, uinput::VirtualDevice};
 use std::net::IpAddr;
@@ -51,6 +52,7 @@ pub async fn run_udp_mouse_server(
         };
 
         if len >= 7 && buf[0] == HEADER_MOUSE {
+            log_data(Verbosity::High, "UDP Mouse Packet", &buf[..len]);
             let dx = i16::from_le_bytes([buf[1], buf[2]]);
             let dy = i16::from_le_bytes([buf[3], buf[4]]);
             let buttons = buf[5];
@@ -60,6 +62,8 @@ pub async fn run_udp_mouse_server(
             } else {
                 0
             };
+
+            log(Verbosity::High, &format!("Mouse: dx={}, dy={}, buttons={:02X}, wheel={}", dx, dy, buttons, wheel));
 
             let mut events = Vec::with_capacity(6);
 
