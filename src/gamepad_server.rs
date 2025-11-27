@@ -58,35 +58,33 @@ fn process_gamepad_snapshot(buttons: [u8; 12], axes: [i16; 8], device: &Arc<Mute
     }
 
     // Axis processors: array of functions to handle each axis
-    let axis_processors: [fn(i16) -> Option<(EventType, u16, i32)>; 8] = [
+    let axis_processors: [fn(&mut Vec<InputEvent>, i16); 8] = [
         // 0: Left X
-        |v| Some((EventType::ABSOLUTE, AbsoluteAxisType::ABS_X.0, v as i32)),
+        |events, v| events.push(InputEvent::new(EventType::ABSOLUTE, AbsoluteAxisType::ABS_X.0, v as i32)),
         // 1: Left Y
-        |v| Some((EventType::ABSOLUTE, AbsoluteAxisType::ABS_Y.0, v as i32)),
+        |events, v| events.push(InputEvent::new(EventType::ABSOLUTE, AbsoluteAxisType::ABS_Y.0, v as i32)),
         // 2: Right X
-        |v| Some((EventType::ABSOLUTE, AbsoluteAxisType::ABS_RX.0, v as i32)),
+        |events, v| events.push(InputEvent::new(EventType::ABSOLUTE, AbsoluteAxisType::ABS_RX.0, v as i32)),
         // 3: Right Y
-        |v| Some((EventType::ABSOLUTE, AbsoluteAxisType::ABS_RY.0, v as i32)),
+        |events, v| events.push(InputEvent::new(EventType::ABSOLUTE, AbsoluteAxisType::ABS_RY.0, v as i32)),
         // 4: Trigger L (as button)
-        |v| Some((EventType::KEY, Key::BTN_THUMBL.0, if v == 0 { 0 } else { 1 })),
+        |events, v| events.push(InputEvent::new(EventType::KEY, Key::BTN_THUMBL.0, if v == 0 { 0 } else { 1 })),
         // 5: Trigger R (as button)
-        |v| Some((EventType::KEY, Key::BTN_THUMBR.0, if v == 0 { 0 } else { 1 })),
+        |events, v| events.push(InputEvent::new(EventType::KEY, Key::BTN_THUMBR.0, if v == 0 { 0 } else { 1 })),
         // 6: Hat X
-        |v| {
+        |events, v| {
             let scaled = if v < 0 { -1 } else if v > 0 { 1 } else { 0 };
-            Some((EventType::ABSOLUTE, AbsoluteAxisType::ABS_HAT0X.0, scaled))
+            events.push(InputEvent::new(EventType::ABSOLUTE, AbsoluteAxisType::ABS_HAT0X.0, scaled));
         },
         // 7: Hat Y
-        |v| {
+        |events, v| {
             let scaled = if v < 0 { -1 } else if v > 0 { 1 } else { 0 };
-            Some((EventType::ABSOLUTE, AbsoluteAxisType::ABS_HAT0Y.0, scaled))
+            events.push(InputEvent::new(EventType::ABSOLUTE, AbsoluteAxisType::ABS_HAT0Y.0, scaled));
         },
     ];
 
     for (i, &value) in axes.iter().enumerate() {
-        if let Some((event_type, code, val)) = axis_processors[i](value) {
-            events.push(InputEvent::new(event_type, code, val));
-        }
+        axis_processors[i](&mut events, value);
     }
 
     if !events.is_empty() {
