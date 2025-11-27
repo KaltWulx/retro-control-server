@@ -1,6 +1,7 @@
 mod devices;
 mod discovery;
 mod gamepad_device;
+mod gamepad_server;
 mod input_mode;
 mod keyboard_server;
 mod logger;
@@ -10,6 +11,7 @@ mod protocol;
 use devices::{create_virtual_keyboard, create_virtual_mouse};
 use discovery::run_discovery_broadcast;
 use gamepad_device::create_virtual_gamepad;
+use gamepad_server::run_udp_gamepad_server;
 use input_mode::InputMode;
 use keyboard_server::run_tcp_keyboard_server;
 use logger::{log, set_verbosity, Verbosity};
@@ -20,6 +22,7 @@ use tokio::sync::RwLock;
 
 const UDP_PORT: u16 = 5555;
 const TCP_PORT: u16 = 5556;
+const GAMEPAD_UDP_PORT: u16 = 5558;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -51,19 +54,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let keyboard_clone = keyboard.clone();
     let mode_clone = input_mode.clone();
     let tcp_clients_clone = connected_clients.clone();
-    let gamepad_clone = gamepad.clone();
-    
     tokio::spawn(async move {
         if let Err(e) = run_tcp_keyboard_server(
             TCP_PORT,
             keyboard_clone,
-            gamepad_clone,
             mode_clone,
             tcp_clients_clone,
         )
         .await
         {
             log(Verbosity::Low, &format!("Error en servidor TCP Teclado: {}", e));
+        }
+    });
+
+    let gamepad_clone = gamepad.clone();
+    tokio::spawn(async move {
+        if let Err(e) = run_udp_gamepad_server(GAMEPAD_UDP_PORT, gamepad_clone).await {
+            log(Verbosity::Low, &format!("Error en servidor UDP Gamepad: {}", e));
         }
     });
 
@@ -77,6 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     log(Verbosity::Low, "✓ Servidores de red iniciados");
     log(Verbosity::Low, &format!("   - Mouse UDP: 0.0.0.0:{}", UDP_PORT));
     log(Verbosity::Low, &format!("   - Teclado TCP: 0.0.0.0:{}", TCP_PORT));
+    log(Verbosity::Low, &format!("   - Gamepad UDP: 0.0.0.0:{}", GAMEPAD_UDP_PORT));
     log(Verbosity::Low, "Esperando conexiones...");
 
     tokio::signal::ctrl_c().await?;

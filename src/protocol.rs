@@ -5,6 +5,7 @@ pub const HEADER_MODE_SWITCH: u8 = 0x30;
 pub const HEADER_MODE_ACK: u8 = 0x31;
 pub const HEADER_GAMEPAD_AXIS: u8 = 0x40;
 pub const HEADER_GAMEPAD_BUTTON: u8 = 0x41;
+pub const HEADER_GAMEPAD_SNAPSHOT: u8 = 0x42;
 pub const HEADER_DISCOVERY: u8 = 0x50;
 
 // Input mode identifiers
