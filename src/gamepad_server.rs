@@ -20,12 +20,7 @@ pub async fn run_udp_gamepad_server(
             let mut events = Vec::new();
             process_buttons(buttons, &mut events);
             process_axes(axes, &mut events);
-
-            if !events.is_empty() {
-                if let Ok(mut dev) = device.lock() {
-                    let _ = dev.emit(&events);
-                }
-            }
+            emit_events(&device, &events);
         }
     }
 }
@@ -82,6 +77,14 @@ fn process_axes(axes: [i16; 8], events: &mut Vec<InputEvent>) {
                 events.push(InputEvent::new(EventType::ABSOLUTE, AbsoluteAxisType::ABS_HAT0Y.0, scaled));
             },
             _ => {},
+        }
+    }
+}
+
+fn emit_events(device: &Arc<Mutex<VirtualDevice>>, events: &[InputEvent]) {
+    if !events.is_empty() {
+        if let Ok(mut dev) = device.lock() {
+            let _ = dev.emit(events);
         }
     }
 }
