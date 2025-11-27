@@ -18,8 +18,7 @@ pub async fn run_udp_gamepad_server(
             log_data(Verbosity::High, "UDP Gamepad Snapshot", &buf[..len]);
 
             // Parse buttons: 12 bytes starting from index 1
-            let mut buttons = [0u8; 12];
-            buttons.copy_from_slice(&buf[1..13]);
+            let buttons: [u8; 12] = buf[1..13].try_into().unwrap();
 
             // Parse axes: 8 i16 starting from index 13
             let mut axes = [0i16; 8];
