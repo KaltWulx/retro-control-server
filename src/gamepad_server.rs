@@ -30,8 +30,11 @@ fn parse_gamepad_snapshot(buf: &[u8]) -> Option<([u8; 12], [i16; 8])> {
         log_data(Verbosity::High, "UDP Gamepad Snapshot", buf);
 
         let buttons: [u8; 12] = buf[1..13].try_into().ok()?;
-        let axes_bytes = &buf[13..29];
-        let axes: [i16; 8] = bytemuck::cast_slice(axes_bytes).try_into().ok()?;
+        let mut axes = [0i16; 8];
+        for i in 0..8 {
+            let start = 13 + i * 2;
+            axes[i] = i16::from_le_bytes([buf[start], buf[start + 1]]);
+        }
 
         Some((buttons, axes))
     } else {
