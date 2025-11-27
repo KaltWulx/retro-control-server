@@ -20,12 +20,9 @@ pub async fn run_udp_gamepad_server(
             // Parse buttons: 12 bytes starting from index 1
             let buttons: [u8; 12] = buf[1..13].try_into().unwrap();
 
-            // Parse axes: 8 i16 starting from index 13
-            let mut axes = [0i16; 8];
-            for i in 0..8 {
-                let start = 13 + i * 2;
-                axes[i] = i16::from_le_bytes([buf[start], buf[start + 1]]);
-            }
+            // Parse axes: 16 bytes starting from index 13, convert to [i16; 8]
+            let axes_bytes = &buf[13..29];
+            let axes: [i16; 8] = bytemuck::cast_slice(axes_bytes).try_into().unwrap();
 
             log(Verbosity::High, &format!("Gamepad Snapshot: buttons={:?}, axes={:?}", buttons, axes));
 
@@ -60,40 +57,35 @@ fn process_gamepad_snapshot(buttons: [u8; 12], axes: [i16; 8], device: &Arc<Mute
         }
     }
 
-    // Axis mappings
-    let axis_types = [
-        AbsoluteAxisType::ABS_X,    // Left X
-        AbsoluteAxisType::ABS_Y,    // Left Y
-        AbsoluteAxisType::ABS_RX,   // Right X
-        AbsoluteAxisType::ABS_RY,   // Right Y
-        AbsoluteAxisType::ABS_Z,    // Trigger L (but we'll treat as button)
-        AbsoluteAxisType::ABS_RZ,   // Trigger R (but we'll treat as button)
-        AbsoluteAxisType::ABS_HAT0X, // Hat X
-        AbsoluteAxisType::ABS_HAT0Y, // Hat Y
+    // Axis processors: array of functions to handle each axis
+    let axis_processors: [fn(i16) -> Option<(EventType, u16, i32)>; 8] = [
+        // 0: Left X
+        |v| Some((EventType::ABSOLUTE, AbsoluteAxisType::ABS_X.0, v as i32)),
+        // 1: Left Y
+        |v| Some((EventType::ABSOLUTE, AbsoluteAxisType::ABS_Y.0, v as i32)),
+        // 2: Right X
+        |v| Some((EventType::ABSOLUTE, AbsoluteAxisType::ABS_RX.0, v as i32)),
+        // 3: Right Y
+        |v| Some((EventType::ABSOLUTE, AbsoluteAxisType::ABS_RY.0, v as i32)),
+        // 4: Trigger L (as button)
+        |v| Some((EventType::KEY, Key::BTN_THUMBL.0, if v == 0 { 0 } else { 1 })),
+        // 5: Trigger R (as button)
+        |v| Some((EventType::KEY, Key::BTN_THUMBR.0, if v == 0 { 0 } else { 1 })),
+        // 6: Hat X
+        |v| {
+            let scaled = if v < 0 { -1 } else if v > 0 { 1 } else { 0 };
+            Some((EventType::ABSOLUTE, AbsoluteAxisType::ABS_HAT0X.0, scaled))
+        },
+        // 7: Hat Y
+        |v| {
+            let scaled = if v < 0 { -1 } else if v > 0 { 1 } else { 0 };
+            Some((EventType::ABSOLUTE, AbsoluteAxisType::ABS_HAT0Y.0, scaled))
+        },
     ];
 
     for (i, &value) in axes.iter().enumerate() {
-        match i {
-            0..=3 => { // Sticks: Left X/Y, Right X/Y
-                if let Some(axis) = axis_types.get(i) {
-                    events.push(InputEvent::new(EventType::ABSOLUTE, axis.0, value as i32));
-                }
-            }
-            4 => { // Trigger L: treat as button BTN_THUMBL
-                let val = if value == 0 { 0 } else { 1 };
-                events.push(InputEvent::new(EventType::KEY, Key::BTN_THUMBL.0, val));
-            }
-            5 => { // Trigger R: treat as button BTN_THUMBR
-                let val = if value == 0 { 0 } else { 1 };
-                events.push(InputEvent::new(EventType::KEY, Key::BTN_THUMBR.0, val));
-            }
-            6..=7 => { // Hat X/Y: scale to -1/0/1
-                if let Some(axis) = axis_types.get(i) {
-                    let scaled = if value < 0 { -1 } else if value > 0 { 1 } else { 0 };
-                    events.push(InputEvent::new(EventType::ABSOLUTE, axis.0, scaled));
-                }
-            }
-            _ => {}
+        if let Some((event_type, code, val)) = axis_processors[i](value) {
+            events.push(InputEvent::new(event_type, code, val));
         }
     }
 

@@ -9,6 +9,8 @@ description = "Retro Control server - remote mouse/keyboard/gamepad via uinput"
 evdev = "0.12"
 # Async runtime para TCP/UDP
 tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "macros", "sync", "time", "signal"] }
+# Conversiones seguras de bytes
+bytemuck = { version = "1.14", features = ["derive"] }
 
 [profile.release]
 opt-level = 3       # Optimizar velocidad
