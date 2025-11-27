@@ -1,50 +1,18 @@
 use crate::logger::{log, log_data, Verbosity};
 use crate::protocol::HEADER_GAMEPAD_SNAPSHOT;
 use evdev::{AbsoluteAxisType, EventType, InputEvent, Key, uinput::VirtualDevice};
-use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 use tokio::net::UdpSocket;
-use tokio::sync::Notify;
 
 pub async fn run_udp_gamepad_server(
     port: u16,
     device: Arc<Mutex<VirtualDevice>>,
 ) -> std::io::Result<()> {
-    // Store active session: (IpAddr, Notify for connection reset)
-    let active_session: Arc<Mutex<Option<(IpAddr, Arc<Notify>)>>> = Arc::new(Mutex::new(None));
-
     let socket = UdpSocket::bind(format!("0.0.0.0:{}", port)).await?;
     let mut buf = [0u8; 64]; // Buffer larger than needed
 
     loop {
-        let (len, src_addr) = socket.recv_from(&mut buf).await?;
-        let src_ip = src_addr.ip();
-
-        // Check if this IP is already connected
-        let _is_new_client = {
-            let mut session = active_session.lock().unwrap();
-            if let Some((existing_ip, _)) = session.as_ref() {
-                if *existing_ip == src_ip {
-                    // Same client continuing: keep existing session
-                    false
-                } else {
-                    // Different client: replace session
-                    println!(
-                        "UDP Gamepad connection from {} replacing previous connection from {}",
-                        src_ip, existing_ip
-                    );
-                    let new_notify = Arc::new(Notify::new());
-                    *session = Some((src_ip, new_notify));
-                    true
-                }
-            } else {
-                // First client
-                println!("UDP Gamepad connection from {} registered", src_ip);
-                let new_notify = Arc::new(Notify::new());
-                *session = Some((src_ip, new_notify));
-                true
-            }
-        };
+        let (len, _) = socket.recv_from(&mut buf).await?;
 
         if len >= 29 && buf[0] == HEADER_GAMEPAD_SNAPSHOT {
             log_data(Verbosity::High, "UDP Gamepad Snapshot", &buf[..len]);
