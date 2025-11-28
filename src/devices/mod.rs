@@ -1,7 +1,4 @@
-use evdev::{
-    AttributeSet, Key, RelativeAxisType,
-    uinput::{VirtualDevice, VirtualDeviceBuilder},
-};
+use evdev::{AttributeSet, Key, RelativeAxisType, uinput::{VirtualDevice, VirtualDeviceBuilder}};
 
 pub fn create_virtual_mouse() -> Result<VirtualDevice, Box<dyn std::error::Error>> {
     let mut keys = AttributeSet::<Key>::new();
@@ -37,3 +34,6 @@ pub fn create_virtual_keyboard() -> Result<VirtualDevice, Box<dyn std::error::Er
 
     Ok(device)
 }
+
+pub mod xbox360;
+pub mod xbox360_layout;
