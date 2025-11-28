@@ -17,6 +17,9 @@
 3. Copy to Batocera: `scp target/release/retro-control-server root@<IP_BATOCERA>:/userdata/system/`
 4. Run: `./retro-control-server`
 
+## Client
+- Android client repository: https://github.com/KaltWulx/RetroControlClient.git
+
 For the Android client, check the separate repo.
 
 ## License
