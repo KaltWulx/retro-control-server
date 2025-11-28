@@ -1,56 +1,3 @@
-fn describe_snapshot(buttons: &[u8; 12], axes: &[i16; 8]) -> String {
-    let button_names = [
-        "A", "B", "X", "Y", "LB", "RB", "Back", "Start", "Guide", "L3", "R3", "(unused)"
-    ];
-    let mut desc = Vec::new();
-    for (i, &val) in buttons.iter().enumerate() {
-        if val != 0 {
-            desc.push(format!("BTN.{}", button_names[i]));
-        }
-    }
-    // Ejes principales
-    if axes[0] > 0 {
-        desc.push("joystick_left derecha".to_string());
-    } else if axes[0] < 0 {
-        desc.push("joystick_left izquierda".to_string());
-    }
-    if axes[1] > 0 {
-        desc.push("joystick_left abajo".to_string());
-    } else if axes[1] < 0 {
-        desc.push("joystick_left arriba".to_string());
-    }
-    if axes[2] > 0 {
-        desc.push("joystick_right derecha".to_string());
-    } else if axes[2] < 0 {
-        desc.push("joystick_right izquierda".to_string());
-    }
-    if axes[3] > 0 {
-        desc.push("joystick_right abajo".to_string());
-    } else if axes[3] < 0 {
-        desc.push("joystick_right arriba".to_string());
-    }
-    if axes[4] > 0 {
-        desc.push(format!("trigger_left {}", axes[4]));
-    }
-    if axes[5] > 0 {
-        desc.push(format!("trigger_right {}", axes[5]));
-    }
-    if axes[6] > 0 {
-        desc.push("dpad derecha".to_string());
-    } else if axes[6] < 0 {
-        desc.push("dpad izquierda".to_string());
-    }
-    if axes[7] > 0 {
-        desc.push("dpad abajo".to_string());
-    } else if axes[7] < 0 {
-        desc.push("dpad arriba".to_string());
-    }
-    if desc.is_empty() {
-        "(sin acción)".to_string()
-    } else {
-        desc.join(", ")
-    }
-}
 use crate::logger::{log, log_data, Verbosity};
 use crate::protocol::HEADER_GAMEPAD_SNAPSHOT;
 use crate::devices::xbox360_layout::Xbox360Layout;
@@ -149,5 +96,60 @@ fn emit_events(device: &Arc<Mutex<VirtualDevice>>, events: &[InputEvent]) {
         if let Ok(mut dev) = device.lock() {
             let _ = dev.emit(events);
         }
+    }
+}
+
+
+fn describe_snapshot(buttons: &[u8; 12], axes: &[i16; 8]) -> String {
+    let button_names = [
+        "A", "B", "X", "Y", "LB", "RB", "Back", "Start", "Guide", "L3", "R3", "(unused)"
+    ];
+    let mut desc = Vec::new();
+    for (i, &val) in buttons.iter().enumerate() {
+        if val != 0 {
+            desc.push(format!("BTN.{}", button_names[i]));
+        }
+    }
+    // Ejes principales
+    if axes[0] > 0 {
+        desc.push("joystick_left derecha".to_string());
+    } else if axes[0] < 0 {
+        desc.push("joystick_left izquierda".to_string());
+    }
+    if axes[1] > 0 {
+        desc.push("joystick_left abajo".to_string());
+    } else if axes[1] < 0 {
+        desc.push("joystick_left arriba".to_string());
+    }
+    if axes[2] > 0 {
+        desc.push("joystick_right derecha".to_string());
+    } else if axes[2] < 0 {
+        desc.push("joystick_right izquierda".to_string());
+    }
+    if axes[3] > 0 {
+        desc.push("joystick_right abajo".to_string());
+    } else if axes[3] < 0 {
+        desc.push("joystick_right arriba".to_string());
+    }
+    if axes[4] > 0 {
+        desc.push(format!("trigger_left {}", axes[4]));
+    }
+    if axes[5] > 0 {
+        desc.push(format!("trigger_right {}", axes[5]));
+    }
+    if axes[6] > 0 {
+        desc.push("dpad derecha".to_string());
+    } else if axes[6] < 0 {
+        desc.push("dpad izquierda".to_string());
+    }
+    if axes[7] > 0 {
+        desc.push("dpad abajo".to_string());
+    } else if axes[7] < 0 {
+        desc.push("dpad arriba".to_string());
+    }
+    if desc.is_empty() {
+        "(sin acción)".to_string()
+    } else {
+        desc.join(", ")
     }
 }
