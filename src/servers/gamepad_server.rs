@@ -1,6 +1,59 @@
+fn describe_snapshot(buttons: &[u8; 12], axes: &[i16; 8]) -> String {
+    let button_names = [
+        "A", "B", "X", "Y", "LB", "RB", "Back", "Start", "Guide", "L3", "R3", "(unused)"
+    ];
+    let mut desc = Vec::new();
+    for (i, &val) in buttons.iter().enumerate() {
+        if val != 0 {
+            desc.push(format!("BTN.{}", button_names[i]));
+        }
+    }
+    // Ejes principales
+    if axes[0] > 0 {
+        desc.push("joystick_left derecha".to_string());
+    } else if axes[0] < 0 {
+        desc.push("joystick_left izquierda".to_string());
+    }
+    if axes[1] > 0 {
+        desc.push("joystick_left abajo".to_string());
+    } else if axes[1] < 0 {
+        desc.push("joystick_left arriba".to_string());
+    }
+    if axes[2] > 0 {
+        desc.push("joystick_right derecha".to_string());
+    } else if axes[2] < 0 {
+        desc.push("joystick_right izquierda".to_string());
+    }
+    if axes[3] > 0 {
+        desc.push("joystick_right abajo".to_string());
+    } else if axes[3] < 0 {
+        desc.push("joystick_right arriba".to_string());
+    }
+    if axes[4] > 0 {
+        desc.push(format!("trigger_left {}", axes[4]));
+    }
+    if axes[5] > 0 {
+        desc.push(format!("trigger_right {}", axes[5]));
+    }
+    if axes[6] > 0 {
+        desc.push("dpad derecha".to_string());
+    } else if axes[6] < 0 {
+        desc.push("dpad izquierda".to_string());
+    }
+    if axes[7] > 0 {
+        desc.push("dpad abajo".to_string());
+    } else if axes[7] < 0 {
+        desc.push("dpad arriba".to_string());
+    }
+    if desc.is_empty() {
+        "(sin acción)".to_string()
+    } else {
+        desc.join(", ")
+    }
+}
 use crate::logger::{log, log_data, Verbosity};
 use crate::protocol::HEADER_GAMEPAD_SNAPSHOT;
-use crate::devices::Xbox360Layout;
+use crate::devices::xbox360_layout::Xbox360Layout;
 use evdev::{EventType, InputEvent, Key, uinput::VirtualDevice};
 use std::sync::{Arc, Mutex};
 use tokio::net::UdpSocket;
@@ -17,6 +70,8 @@ pub async fn run_udp_gamepad_server(
 
         if let Some((buttons, axes)) = parse_gamepad_snapshot(&buf[..len]) {
             log(Verbosity::High, &format!("Gamepad Snapshot: buttons={:?}, axes={:?}", buttons, axes));
+            let semantic = describe_snapshot(&buttons, &axes);
+            log_data(Verbosity::High, &format!("Evento: {}", semantic), &[]);
 
             let mut events = Vec::new();
             process_buttons(buttons, &mut events);
@@ -27,16 +82,18 @@ pub async fn run_udp_gamepad_server(
 }
 
 fn parse_gamepad_snapshot(buf: &[u8]) -> Option<([u8; 12], [i16; 8])> {
+    // Formato compacto: [header:1][button_bits:2][axes:16]
     if buf.len() >= 19 && buf[0] == HEADER_GAMEPAD_SNAPSHOT {
         log_data(Verbosity::High, "UDP Gamepad Snapshot", buf);
 
-        // Buttons packed into 2 bytes (16 bits)
+        // Botones: bitwise en 2 bytes (u16 LE)
         let button_bits = u16::from_le_bytes([buf[1], buf[2]]);
         let mut buttons = [0u8; 12];
         for i in 0..12 {
             buttons[i] = ((button_bits >> i) & 1) as u8;
         }
 
+        // Ejes: 8 x i16 LE
         let mut axes = [0i16; 8];
         for i in 0..8 {
             let start = 3 + i * 2;

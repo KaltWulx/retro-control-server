@@ -35,7 +35,5 @@ pub fn create_virtual_keyboard() -> Result<VirtualDevice, Box<dyn std::error::Er
     Ok(device)
 }
 
-mod xbox360;
-pub use xbox360::create_virtual_gamepad;
-mod xbox360_layout;
-pub use xbox360_layout::Xbox360Layout;
+pub mod xbox360;
+pub mod xbox360_layout;

@@ -7,7 +7,7 @@ mod protocol;
 
 use devices::{create_virtual_keyboard, create_virtual_mouse};
 use discovery::run_discovery_broadcast;
-use devices::create_virtual_gamepad;
+use devices::xbox360::create_virtual_gamepad;
 use servers::gamepad_server::run_udp_gamepad_server;
 use input_mode::InputMode;
 use servers::keyboard_server::run_tcp_keyboard_server;

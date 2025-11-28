@@ -4,6 +4,7 @@ use evdev::{AbsInfo, AttributeSet, Key, UinputAbsSetup, uinput::{VirtualDevice, 
 pub fn create_virtual_gamepad() -> Result<VirtualDevice, Box<dyn std::error::Error>> {
     // Build AttributeSet of keys from layout
     let mut keys = AttributeSet::<Key>::new();
+    
     for &code in Xbox360Layout::BUTTON_CODES.iter() {
         keys.insert(Key::new(code));
     }
