@@ -51,17 +51,12 @@ pub async fn run_udp_mouse_server(
             }
         };
 
-        if len >= 7 && buf[0] == HEADER_MOUSE {
+        if len >= 5 && buf[0] == HEADER_MOUSE {
             log_data(Verbosity::High, "UDP Mouse Packet", &buf[..len]);
-            let dx = i16::from_le_bytes([buf[1], buf[2]]);
-            let dy = i16::from_le_bytes([buf[3], buf[4]]);
-            let buttons = buf[5];
-
-            let wheel = if len >= 8 {
-                i16::from_le_bytes([buf[6], buf[7]])
-            } else {
-                0
-            };
+            let dx = buf[1] as i8;
+            let dy = buf[2] as i8;
+            let buttons = buf[3];
+            let wheel = buf[4] as i8;
 
             log(Verbosity::High, &format!("Mouse: dx={}, dy={}, buttons={:02X}, wheel={}", dx, dy, buttons, wheel));
 

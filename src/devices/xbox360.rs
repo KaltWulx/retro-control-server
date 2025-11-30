@@ -2,15 +2,27 @@ use super::xbox360_layout::Xbox360Layout;
 use evdev::{AbsInfo, AttributeSet, Key, UinputAbsSetup, uinput::{VirtualDevice, VirtualDeviceBuilder}};
 
 pub fn create_virtual_gamepad() -> Result<VirtualDevice, Box<dyn std::error::Error>> {
-    // Build AttributeSet of keys from layout
+    // Build AttributeSet of keys
+    let key_array = [
+        Key::BTN_SOUTH,  // A
+        Key::BTN_EAST,   // B
+        Key::BTN_NORTH,  // X
+        Key::BTN_WEST,   // Y
+        Key::BTN_TL,     // LB
+        Key::BTN_TR,     // RB
+        Key::BTN_SELECT, // Back
+        Key::BTN_START,  // Start
+        Key::BTN_MODE,   // Guide
+        Key::BTN_THUMBL, // Left Stick Press
+        Key::BTN_THUMBR, // Right Stick Press
+    ];
     let mut keys = AttributeSet::<Key>::new();
-    
-    for &code in Xbox360Layout::BUTTON_CODES.iter() {
-        keys.insert(Key::new(code));
+    for &key in &key_array {
+        keys.insert(key);
     }
 
     let mut builder = VirtualDeviceBuilder::new()?
-        .name("Retro Virtual Xbox 360")
+        .name("RetroControl Virtual Gamepad")
         .with_keys(&keys)?;
 
     // Add absolute axes individually (evdev version provides `with_absolute_axis`).
